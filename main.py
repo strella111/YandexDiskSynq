@@ -1,7 +1,6 @@
 from datetime import datetime
 import time
 import os
-from dotenv import dotenv_values, load_dotenv
 import configparser
 
 from loguru import logger
