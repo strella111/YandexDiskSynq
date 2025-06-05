@@ -9,17 +9,27 @@ from cloud_disk import CloudDisk, CloudDiskConfigError
 
 
 def validate_config(config):
-    """Проверка конфигурации
-    config - конфигурация
-    """
+
+    if isinstance(config, configparser.ConfigParser):
+        config = config['DEFAULT']
+
     required_fields = ['token', 'local_path', 'cloud_path', 'period', 'log_path']
     missing_fields = [field for field in required_fields if not config.get(field)]
-    
     if missing_fields:
         raise CloudDiskConfigError(f"Отсутствуют обязательные поля в конфигурации: {', '.join(missing_fields)}")
-    
+
     if not os.path.exists(config['local_path']):
         raise CloudDiskConfigError(f"Локальная директория {config['local_path']} не существует")
+
+    try:
+        period = int(config['period'])
+        if period <= 0:
+            raise ValueError
+    except Exception:
+        raise CloudDiskConfigError("Параметр 'period' должен быть положительным целым числом")
+
+    if not config['log_path'].strip():
+        raise CloudDiskConfigError("Параметр 'log_path' не должен быть пустым")
 
 
 def sync_files(ya_disk, local_path):
@@ -64,8 +74,6 @@ def main(auth_token, local_path, cloud_path, period):
     period - период синхронизации
     """
     try:
-        validate_config(config)
-
         ya_disk = CloudDisk(token=auth_token, dir=cloud_path)
 
         logger.info(f'Старт синхронизации папки {local_path} с папкой в облаке {cloud_path}. Период синхронизации: {period} секунд')
@@ -89,16 +97,8 @@ if __name__ == '__main__':
     try:
         config = configparser.ConfigParser()
         config.read('config.ini', encoding='utf-8')
+        validate_config(config)
 
-        if not config['DEFAULT']['token']:
-            raise CloudDiskConfigError('Токен авторизации не указан')
-        if not config['DEFAULT']['local_path']:
-            raise CloudDiskConfigError('Путь к локальной папке не указан')
-        if not config['DEFAULT']['cloud_path']:
-            raise CloudDiskConfigError('Путь к облачной папке не указан')
-        if not config['DEFAULT']['period']:
-            raise CloudDiskConfigError('Период синхронизации не указан')
-        
         auth_token = config['DEFAULT']['token']
         local_path = config['DEFAULT']['local_path']
         cloud_path = config['DEFAULT']['cloud_path']
@@ -111,5 +111,5 @@ if __name__ == '__main__':
         main(auth_token, local_path, cloud_path, period)
 
     except Exception as e:
-        logger.error(f'Критическая ошибка: {str(e)}')
+       logger.error(f'Критическая ошибка: {str(e)}')
 
